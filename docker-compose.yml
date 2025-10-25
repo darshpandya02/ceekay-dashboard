@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ceekay-postgres
+    environment:
+      POSTGRES_DB: ceekay_dashboard
+      POSTGRES_USER: ceekay_user
+      POSTGRES_PASSWORD: ceekay_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ceekay-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ceekay-backend
+    environment:
+      DATABASE_URL: postgresql://ceekay_user:ceekay_password@postgres:5432/ceekay_dashboard?schema=public
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      PORT: 5000
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend/uploads:/app/uploads
+    networks:
+      - ceekay-network
+    restart: unless-stopped
+
+  # Frontend (Web)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ceekay-frontend
+    environment:
+      EXPO_PUBLIC_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - ceekay-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  ceekay-network:
+    driver: bridge
