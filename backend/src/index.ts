@@ -19,7 +19,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Initialize Prisma client
-export const prisma = new PrismaClient();
+// On Vercel, CEEKAY_DATABASE_URL points at this app's own Postgres schema.
+export const prisma = new PrismaClient(
+  process.env.CEEKAY_DATABASE_URL ? { datasourceUrl: process.env.CEEKAY_DATABASE_URL } : undefined
+);
 
 // Rate limiting
 const rateLimiter = new RateLimiterMemory({
@@ -28,10 +31,13 @@ const rateLimiter = new RateLimiterMemory({
   duration: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000') / 1000,
 });
 
+// Behind Vercel's proxy: use the client IP from X-Forwarded-For for rate limiting
+app.set('trust proxy', true);
+
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map(o => o.trim()),
   credentials: true,
 }));
 
@@ -41,12 +47,22 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting middleware
 app.use(async (req, res, next) => {
   try {
-    await rateLimiter.consume(req.ip);
+    await rateLimiter.consume(req.ip || 'unknown');
     next();
   } catch (rej) {
     res.status(429).json({ error: 'Too many requests' });
   }
 });
+
+// Public demo: keep the demo admin account from being edited or deleted
+if (process.env.DEMO_MODE === 'true') {
+  app.use('/api/users', (req, res, next) => {
+    if (req.method !== 'GET') {
+      return res.status(403).json({ error: 'User management is read-only in the public demo' });
+    }
+    return next();
+  });
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -67,22 +83,25 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  logger.info('Shutting down server...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+// On Vercel the exported app is invoked as a function; only listen when run directly
+if (!process.env.VERCEL) {
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    logger.info('Shutting down server...');
+    await prisma.$disconnect();
+    process.exit(0);
+  });
 
-process.on('SIGTERM', async () => {
-  logger.info('Shutting down server...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+  process.on('SIGTERM', async () => {
+    logger.info('Shutting down server...');
+    await prisma.$disconnect();
+    process.exit(0);
+  });
 
-app.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+  app.listen(PORT, () => {
+    logger.info(`🚀 Server running on port ${PORT}`);
+    logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+}
 
 export default app;

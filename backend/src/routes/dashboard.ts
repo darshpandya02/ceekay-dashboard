@@ -77,7 +77,7 @@ router.get('/:year', async (req: AuthRequest, res) => {
 
     // Top 5 categories by revenue
     const categoryRevenue = salesData.reduce((acc, item) => {
-      const category = item.category;
+      const category = item.category ?? 'Uncategorized';
       acc[category] = (acc[category] || 0) + Number(item.salesAmount);
       return acc;
     }, {} as Record<string, number>);

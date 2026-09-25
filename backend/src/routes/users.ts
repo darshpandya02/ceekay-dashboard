@@ -41,7 +41,7 @@ router.post('/', requireAdmin, [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('role').isIn(['ADMIN', 'USER']),
-], async (req: AuthRequest, res) => {
+], async (req: AuthRequest, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -99,7 +99,7 @@ router.put('/:id', requireAdmin, [
   body('name').optional().trim().isLength({ min: 2, max: 100 }),
   body('email').optional().isEmail().normalizeEmail(),
   body('role').optional().isIn(['ADMIN', 'USER']),
-], async (req: AuthRequest, res) => {
+], async (req: AuthRequest, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

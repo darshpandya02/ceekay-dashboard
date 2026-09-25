@@ -10,14 +10,17 @@ export const logger = winston.createLogger({
     winston.format.json()
   ),
   defaultMeta: { service: 'ceekay-dashboard-api' },
-  transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-  ],
+  // Serverless filesystems are read-only, so skip file logs on Vercel
+  transports: process.env.VERCEL
+    ? [new winston.transports.Console()]
+    : [
+        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'logs/combined.log' }),
+      ],
 });
 
 // If we're not in production, log to the console as well
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   logger.add(new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize(),

@@ -11,7 +11,7 @@ const router = express.Router();
 router.post('/login', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
-], async (req, res) => {
+], async (req: express.Request, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -47,7 +47,7 @@ router.post('/login', [
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as jwt.SignOptions['expiresIn'] }
     );
 
     logger.info(`User ${email} logged in successfully`);

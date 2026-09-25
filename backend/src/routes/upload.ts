@@ -1,8 +1,8 @@
 import express from 'express';
 import multer from 'multer';
 import csv from 'csv-parser';
-import fs from 'fs';
 import path from 'path';
+import { Readable } from 'stream';
 import { body, validationResult } from 'express-validator';
 import { prisma } from '../index';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
@@ -13,20 +13,8 @@ const router = express.Router();
 // Apply authentication to all routes
 router.use(authenticateToken);
 
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = process.env.UPLOAD_PATH || './uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `sales-${uniqueSuffix}.csv`);
-  }
-});
+// Keep uploads in memory: serverless disks are ephemeral
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -45,7 +33,7 @@ const upload = multer({
 // Upload CSV file
 router.post('/', upload.single('csvFile'), [
   body('year').isInt({ min: 2020, max: 2030 }),
-], async (req: AuthRequest, res) => {
+], async (req: AuthRequest, res: express.Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -60,20 +48,20 @@ router.post('/', upload.single('csvFile'), [
     }
 
     const { year } = req.body;
-    const filePath = req.file.path;
+    const fileBuffer = req.file.buffer;
 
     // Parse CSV file
     const salesData: any[] = [];
-    const errors: string[] = [];
+    const parseErrors: string[] = [];
 
     await new Promise((resolve, reject) => {
-      fs.createReadStream(filePath)
+      Readable.from(fileBuffer)
         .pipe(csv())
         .on('data', (row) => {
           try {
             // Validate required fields
             if (!row['Product Name'] || !row['Sales Amount']) {
-              errors.push(`Row missing required fields: ${JSON.stringify(row)}`);
+              parseErrors.push(`Row missing required fields: ${JSON.stringify(row)}`);
               return;
             }
 
@@ -91,7 +79,7 @@ router.post('/', upload.single('csvFile'), [
               salesData.push(salesRecord);
             }
           } catch (error) {
-            errors.push(`Error parsing row: ${error}`);
+            parseErrors.push(`Error parsing row: ${error}`);
           }
         })
         .on('end', resolve)
@@ -99,11 +87,9 @@ router.post('/', upload.single('csvFile'), [
     });
 
     if (salesData.length === 0) {
-      // Clean up file
-      fs.unlinkSync(filePath);
       return res.status(400).json({ 
         error: 'No valid sales data found in CSV file',
-        details: errors
+        details: parseErrors
       });
     }
 
@@ -132,24 +118,16 @@ router.post('/', upload.single('csvFile'), [
       }
     });
 
-    // Clean up file
-    fs.unlinkSync(filePath);
-
     logger.info(`CSV uploaded successfully: ${salesData.length} records for year ${year} by ${req.user?.email}`);
 
     res.json({
       success: true,
       message: `Successfully uploaded ${salesData.length} sales records for year ${year}`,
       recordCount: salesData.length,
-      errors: errors.length > 0 ? errors : undefined
+      errors: parseErrors.length > 0 ? parseErrors : undefined
     });
   } catch (error) {
     logger.error('Upload error:', error);
-    
-    // Clean up file if it exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
     
     res.status(500).json({ error: 'Internal server error' });
   }
