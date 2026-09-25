@@ -25,11 +25,16 @@ export interface UploadHistoryResponse {
 export const uploadService = {
   async uploadCSV(file: any, year: number): Promise<UploadResponse> {
     const formData = new FormData();
-    formData.append('csvFile', {
-      uri: file.uri,
-      type: 'text/csv',
-      name: file.name || 'sales-data.csv',
-    } as any);
+    if (file.file) {
+      // Web: append the browser File object directly
+      formData.append('csvFile', file.file, file.name || 'sales-data.csv');
+    } else {
+      formData.append('csvFile', {
+        uri: file.uri,
+        type: 'text/csv',
+        name: file.name || 'sales-data.csv',
+      } as any);
+    }
     formData.append('year', year.toString());
 
     const response = await api.post('/upload', formData, {

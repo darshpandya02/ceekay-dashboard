@@ -2,6 +2,24 @@
 
 A complete production-ready mobile and web application for Ceekay Enterprise's internal monitoring dashboard for sales and product data.
 
+## Live Demo
+
+- App: https://ceekay-dashboard.vercel.app
+- API: https://ceekay-dashboard-api.vercel.app (health check at `/health`)
+
+Demo login (also shown on the login screen):
+
+- Email: `demo@ceekay-demo.dev`
+- Password: `demo-dashboard-2026`
+
+The demo database holds synthetic sample sales data only (products named "Demo ..."). User management is read-only in the demo, and uploaded CSVs replace that year's demo data.
+
+### Deployment (Vercel)
+
+- `frontend/` is the `ceekay-dashboard` project: a static Expo web export (`npx expo export -p web` to `dist/`). `EXPO_PUBLIC_API_URL` must point at the API's `/api` path at build time.
+- `backend/` is the `ceekay-dashboard-api` project: the Express app runs as a Vercel Function. Env vars: `CEEKAY_DATABASE_URL` (Postgres URL with `schema=ceekay_dashboard`), `JWT_SECRET`, `CORS_ORIGIN`, `DEMO_MODE=true`.
+- Create tables with `npx prisma db push` and seed the demo with `npx ts-node prisma/seed.ts`, with `DATABASE_URL` set to the same schema.
+
 ## 🚀 Features
 
 - **Role-based Authentication**: Admin and User roles with JWT authentication
@@ -115,10 +133,10 @@ npm install
 npx expo start
 ```
 
-### Default Admin Credentials
+### Demo Admin Credentials (created by the seed script)
 
-- Email: admin@ceekay.com
-- Password: admin123
+- Email: demo@ceekay-demo.dev
+- Password: demo-dashboard-2026
 
 ## 📱 App Screens
 

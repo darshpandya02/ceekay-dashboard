@@ -58,7 +58,7 @@ const MonthlyTrendChart: React.FC<MonthlyTrendChartProps> = ({ data }) => {
             style={styles.chart}
             withDots={true}
             withShadow={false}
-            withScrollableDot={true}
+            withScrollableDot={false}
           />
         </View>
       </Card.Content>

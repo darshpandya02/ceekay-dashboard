@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { dashboardService } from '../services/dashboardService';
+import { dashboardService } from '../../services/dashboardService';
 
 export interface DashboardData {
   totalRevenue: number;

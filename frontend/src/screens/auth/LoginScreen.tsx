@@ -20,6 +20,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../store';
 import { login, clearError } from '../../store/slices/authSlice';
 
+// Public demo account (seeded with synthetic sample data only)
+const DEMO_EMAIL = 'demo@ceekay-demo.dev';
+const DEMO_PASSWORD = 'demo-dashboard-2026';
+
 const LoginScreen: React.FC = () => {
   const theme = useTheme();
   const dispatch = useDispatch<AppDispatch>();
@@ -28,9 +32,18 @@ const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Alert.alert is a no-op in react-native-web, so fall back to the browser dialog
+  const showAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showAlert('Error', 'Please fill in all fields');
       return;
     }
 
@@ -43,7 +56,7 @@ const LoginScreen: React.FC = () => {
 
   React.useEffect(() => {
     if (error) {
-      Alert.alert('Login Error', error);
+      showAlert('Login Error', error);
       dispatch(clearError());
     }
   }, [error, dispatch]);
@@ -101,11 +114,25 @@ const LoginScreen: React.FC = () => {
           </Card.Content>
         </Card>
 
-        <View style={styles.footer}>
-          <Paragraph style={styles.footerText}>
-            Contact your administrator for access
-          </Paragraph>
-        </View>
+        <Card style={styles.demoCard}>
+          <Card.Content>
+            <Text style={styles.demoTitle}>Public demo</Text>
+            <Text style={styles.demoText}>Email: {DEMO_EMAIL}</Text>
+            <Text style={styles.demoText}>Password: {DEMO_PASSWORD}</Text>
+            <Text style={styles.demoNote}>All sales figures are synthetic sample data.</Text>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                setEmail(DEMO_EMAIL);
+                setPassword(DEMO_PASSWORD);
+              }}
+              disabled={isLoading}
+              style={styles.demoButton}
+            >
+              Use demo login
+            </Button>
+          </Card.Content>
+        </Card>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -153,6 +180,29 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     paddingVertical: 8,
+  },
+  demoCard: {
+    marginTop: 24,
+    borderRadius: 12,
+    backgroundColor: '#eef2ff',
+  },
+  demoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  demoText: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  demoNote: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 6,
+  },
+  demoButton: {
+    marginTop: 12,
+    borderRadius: 8,
   },
   footer: {
     marginTop: 32,

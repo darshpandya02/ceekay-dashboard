@@ -17,8 +17,29 @@ import {
   List,
   Divider,
 } from 'react-native-paper';
-import DocumentPicker from 'react-native-document-picker';
 import { uploadService } from '../../services/uploadService';
+
+// Alert.alert is a no-op in react-native-web, so fall back to the browser dialog
+const notify = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+};
+
+// react-native-document-picker has no web implementation, so use a file input on web
+const pickCsvOnWeb = (): Promise<any> =>
+  new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,text/csv';
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      resolve(file ? { name: file.name, size: file.size, file } : null);
+    };
+    input.click();
+  });
 
 const UploadScreen: React.FC = () => {
   const theme = useTheme();
@@ -28,6 +49,15 @@ const UploadScreen: React.FC = () => {
   const [uploadHistory, setUploadHistory] = useState<any[]>([]);
 
   const handleFilePicker = async () => {
+    if (Platform.OS === 'web') {
+      const file = await pickCsvOnWeb();
+      if (file) {
+        setSelectedFile(file);
+      }
+      return;
+    }
+    // Loaded lazily: the native module crashes react-native-web at import time
+    const DocumentPicker = require('react-native-document-picker').default;
     try {
       const result = await DocumentPicker.pick({
         type: [DocumentPicker.types.csv],
@@ -47,19 +77,26 @@ const UploadScreen: React.FC = () => {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      Alert.alert('Error', 'Please select a CSV file');
+      notify('Error', 'Please select a CSV file');
       return;
     }
 
     if (!year || isNaN(parseInt(year))) {
-      Alert.alert('Error', 'Please enter a valid year');
+      notify('Error', 'Please enter a valid year');
       return;
     }
 
     setIsUploading(true);
     try {
       const response = await uploadService.uploadCSV(selectedFile, parseInt(year));
-      
+
+      if (Platform.OS === 'web') {
+        notify('Success', `Successfully uploaded ${response.recordCount} records for year ${year}`);
+        setSelectedFile(null);
+        loadUploadHistory();
+        return;
+      }
+
       Alert.alert(
         'Success',
         `Successfully uploaded ${response.recordCount} records for year ${year}`,
@@ -75,7 +112,7 @@ const UploadScreen: React.FC = () => {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Upload Error', error.message || 'Failed to upload file');
+      notify('Upload Error', error.response?.data?.error || error.message || 'Failed to upload file');
     } finally {
       setIsUploading(false);
     }

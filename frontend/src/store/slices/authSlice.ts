@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 
 export interface User {
   id: string;
@@ -92,9 +92,9 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.error = null;
       })
-      .addCase(getCurrentUser.rejected, (state, action) => {
+      .addCase(getCurrentUser.rejected, (state) => {
+        // No stored session is the normal first-visit case, not a login error
         state.isLoading = false;
-        state.error = action.payload as string;
       })
       // Logout
       .addCase(logout.fulfilled, (state) => {
